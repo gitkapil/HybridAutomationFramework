@@ -1,0 +1,125 @@
+# Selenium Grid 4 on Kubernetes with KEDA autoscaling of Chrome nodes.
+# Apply: kubectl apply -f infra/k8s/selenium-grid.yaml
+# NOTE: KEDA needs a metric source. The ScaledObject below assumes a Prometheus endpoint that exposes
+# the Grid queue size (for example, scraped from http://selenium-hub:4444/status). Adjust serverAddress and query
+# to match your exporter. It is not verified against a live cluster.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: selenium-grid
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: selenium-hub
+  namespace: selenium-grid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: selenium-hub
+  template:
+    metadata:
+      labels:
+        app: selenium-hub
+    spec:
+      containers:
+        - name: hub
+          image: selenium/hub:4.27.0
+          ports:
+            - containerPort: 4442
+            - containerPort: 4443
+            - containerPort: 4444
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 4444
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: selenium-hub
+  namespace: selenium-grid
+spec:
+  selector:
+    app: selenium-hub
+  ports:
+    - name: publish
+      port: 4442
+    - name: subscribe
+      port: 4443
+    - name: grid
+      port: 4444
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: selenium-node-chrome
+  namespace: selenium-grid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: selenium-node-chrome
+  template:
+    metadata:
+      labels:
+        app: selenium-node-chrome
+    spec:
+      containers:
+        - name: chrome
+          image: selenium/node-chrome:4.27.0
+          env:
+            - name: SE_EVENT_BUS_HOST
+              value: selenium-hub
+            - name: SE_EVENT_BUS_PUBLISH_PORT
+              value: "4442"
+            - name: SE_EVENT_BUS_SUBSCRIBE_PORT
+              value: "4443"
+            - name: SE_NODE_MAX_SESSIONS
+              value: "2"
+            - name: SE_NODE_OVERRIDE_MAX_SESSIONS
+              value: "true"
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: selenium-node-chrome-scaler
+  namespace: selenium-grid
+spec:
+  scaleTargetRef:
+    name: selenium-node-chrome
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  cooldownPeriod: 300
+  triggers:
+    - type: prometheus
+      metadata:
+        # Placeholder endpoint and query. Replace with your Prometheus address and the Grid queue metric you export.
+        serverAddress: http://prometheus-operated.monitoring.svc:9090
+        query: sum(selenium_grid_session_queue_size{browser="chrome"})
+        threshold: "1"

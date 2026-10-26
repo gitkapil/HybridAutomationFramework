@@ -1,0 +1,13 @@
+# Test runner image. Build from the enterprise-automation root:
+#   docker build -f infra/docker/Dockerfile.runner -t enterprise-automation-runner .
+# Every execution dimension is a -D argument, so the same image runs any matrix cell:
+#   docker run --rm enterprise-automation-runner -Dgroups=smoke -Dtarget=docker-grid -Dgrid.url=http://selenium-hub:4444
+FROM maven:3.9.9-eclipse-temurin-17
+
+WORKDIR /workspace
+COPY . .
+RUN chmod +x mvnw && ./mvnw -B -q -DskipTests install
+
+# Secrets (SECRET_API_PASSWORD, SECRET_UI_PASSWORD) are injected at run time, never baked into the image.
+ENTRYPOINT ["./mvnw", "-B"]
+CMD ["verify", "-Dgroups=smoke", "-Denv=dev", "-Dtarget=local", "-Dheadless=true"]

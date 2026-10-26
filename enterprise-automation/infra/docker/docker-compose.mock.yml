@@ -1,0 +1,37 @@
+# Mock downstream stack: standalone WireMock with the booking stubs, Postgres (JDBC helper target), Mailhog (email capture).
+#   cd infra/docker && docker compose -f docker-compose.mock.yml up -d
+#   docker compose -f docker-compose.mock.yml run --rm runner ... (to point the API tests at it, set api.base.url=http://localhost:8089 in config)
+# Limitation: the standalone WireMock image serves only the JSON mappings. The Java BookingStoreTransformer
+# (stateful create/get/delete) runs only inside the JVM, so use the embedded mock for stateful scenarios.
+services:
+  wiremock:
+    image: wiremock/wiremock:3.9.2
+    ports:
+      - "8089:8080"
+    volumes:
+      - ../../automation/api-clients/src/main/resources/mocks/booking/mappings:/home/wiremock/mappings:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/__admin/mappings"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: automation
+      POSTGRES_USER: automation
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the host environment}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U automation -d automation"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"

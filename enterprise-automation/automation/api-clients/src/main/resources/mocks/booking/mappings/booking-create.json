@@ -1,0 +1,9 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/booking"
+  },
+  "response": {
+    "transformers": ["booking-store"]
+  }
+}

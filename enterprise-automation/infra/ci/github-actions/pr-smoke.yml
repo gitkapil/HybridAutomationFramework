@@ -1,0 +1,41 @@
+# PR smoke gate. Runs unit + smoke tests on every pull request against the public demo sites.
+# Activation: copy to <git-root>/.github/workflows/ (GitHub only reads that location).
+name: pr-smoke
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: HybridAutomationFramework/enterprise-automation
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Run unit and smoke tests
+        env:
+          SECRET_API_PASSWORD: ${{ secrets.API_PASSWORD }}
+          SECRET_UI_PASSWORD: ${{ secrets.UI_PASSWORD }}
+        run: ./mvnw -B clean verify -Dgroups=unit,smoke -Denv=qa -Dtarget=local -Dheadless=true
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-pr-smoke
+          path: HybridAutomationFramework/enterprise-automation/target/allure-results
+          if-no-files-found: ignore

@@ -1,0 +1,69 @@
+# Selenium Grid 4 (hub + nodes) plus a test runner.
+#   cd infra/docker && docker compose -f docker-compose.grid.yml up -d --scale selenium-chrome=2
+#   docker compose -f docker-compose.grid.yml run --rm runner -Dgroups=smoke -Dbrowser=chrome
+# Secrets are read from the host environment (SECRET_API_PASSWORD, SECRET_UI_PASSWORD).
+services:
+  selenium-hub:
+    image: selenium/hub:4.27.0
+    container_name: selenium-hub
+    ports:
+      - "4442:4442"
+      - "4443:4443"
+      - "4444:4444"
+    healthcheck:
+      test: ["CMD", "/opt/bin/check-grid.sh", "--host", "localhost", "--port", "4444"]
+      interval: 15s
+      timeout: 30s
+      retries: 5
+
+  selenium-chrome:
+    image: selenium/node-chrome:4.27.0
+    shm_size: "2gb"
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+
+  selenium-firefox:
+    image: selenium/node-firefox:4.27.0
+    shm_size: "2gb"
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+
+  selenium-edge:
+    image: selenium/node-edge:4.27.0
+    shm_size: "2gb"
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+
+  runner:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.runner
+    image: enterprise-automation-runner
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SECRET_API_PASSWORD
+      - SECRET_UI_PASSWORD
+    command: ["verify", "-Dtarget=docker-grid", "-Dgrid.url=http://selenium-hub:4444", "-Dheadless=true", "-Denv=dev", "-Dgroups=smoke"]

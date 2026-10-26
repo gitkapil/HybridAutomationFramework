@@ -1,0 +1,43 @@
+// Declarative Jenkins pipeline. Every execution dimension is a parameter passed as -D, never a code change.
+pipeline {
+    agent { docker { image 'maven:3.9.9-eclipse-temurin-17'; args '-v $HOME/.m2:/root/.m2' } }
+
+    parameters {
+        choice(name: 'ENV', choices: ['qa', 'uat', 'dev'], description: 'Target environment')
+        choice(name: 'TARGET', choices: ['local', 'docker-grid', 'k8s-grid'], description: 'Execution target')
+        choice(name: 'BROWSER', choices: ['chrome', 'firefox', 'edge'], description: 'Browser')
+        choice(name: 'MOCK_PROFILE', choices: ['real', 'mock', 'hybrid'], description: 'Downstream profile')
+        string(name: 'GROUPS', defaultValue: 'smoke', description: 'TestNG groups, comma separated')
+        string(name: 'THREADS', defaultValue: '2', description: 'Parallel threads')
+    }
+
+    options {
+        timeout(time: 90, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+    }
+
+    stages {
+        stage('Test') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'api-password', variable: 'SECRET_API_PASSWORD'),
+                    string(credentialsId: 'ui-password', variable: 'SECRET_UI_PASSWORD')
+                ]) {
+                    sh """
+                        ./mvnw -B clean verify \
+                          -Denv=${params.ENV} -Dtarget=${params.TARGET} -Dbrowser=${params.BROWSER} \
+                          -Dmock.profile=${params.MOCK_PROFILE} -Dgroups=${params.GROUPS} \
+                          -Dthreads=${params.THREADS} -Dheadless=true
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'target/allure-results/**', allowEmptyArchive: true
+            junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
+        }
+    }
+}

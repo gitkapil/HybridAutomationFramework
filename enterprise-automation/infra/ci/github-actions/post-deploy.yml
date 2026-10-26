@@ -1,0 +1,51 @@
+# Post-deploy verification. Runs against the environment named by the deployment.
+# Activation: copy to <git-root>/.github/workflows/ (GitHub only reads that location).
+name: post-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: Target environment
+        type: choice
+        options: [qa, uat, prod-readonly]
+        default: qa
+  workflow_call:
+    inputs:
+      env:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: HybridAutomationFramework/enterprise-automation
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Run smoke tests against the deployed environment
+        env:
+          SECRET_API_PASSWORD: ${{ secrets.API_PASSWORD }}
+          SECRET_UI_PASSWORD: ${{ secrets.UI_PASSWORD }}
+        run: ./mvnw -B clean verify -Dgroups=smoke -Denv=${{ inputs.env }} -Dtarget=local -Dheadless=true
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-post-deploy-${{ inputs.env }}
+          path: HybridAutomationFramework/enterprise-automation/target/allure-results
+          if-no-files-found: ignore

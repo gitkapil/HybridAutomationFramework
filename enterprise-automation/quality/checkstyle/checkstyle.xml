@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!-- Enforced on every module with error severity. Formatting is owned by Spotless; this file covers hygiene rules. -->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="error"/>
+
+    <module name="SuppressWarningsFilter"/>
+
+    <module name="TreeWalker">
+        <module name="AvoidStarImport"/>
+        <module name="UnusedImports">
+            <property name="processJavadoc" value="true"/>
+        </module>
+        <module name="RedundantImport"/>
+        <module name="NeedBraces"/>
+        <module name="EqualsHashCode"/>
+        <module name="MissingSwitchDefault"/>
+        <module name="EmptyStatement"/>
+        <module name="SimplifyBooleanExpression"/>
+        <module name="SimplifyBooleanReturn"/>
+        <module name="IllegalImport">
+            <property name="illegalPkgs" value="sun, jdk.internal"/>
+        </module>
+        <module name="RegexpSinglelineJava">
+            <property name="format" value="\bThread\.sleep\s*\("/>
+            <property name="message" value="Thread.sleep is forbidden. Use explicit waits or Awaitility."/>
+            <property name="ignoreComments" value="true"/>
+        </module>
+        <module name="RegexpSinglelineJava">
+            <property name="format" value="\bSystem\.(out|err)\.print"/>
+            <property name="message" value="Use SLF4J logging instead of System.out/System.err."/>
+            <property name="ignoreComments" value="true"/>
+        </module>
+    </module>
+</module>

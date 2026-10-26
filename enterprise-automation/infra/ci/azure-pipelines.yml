@@ -1,0 +1,56 @@
+# Azure Pipelines. Parameters map to -D properties, so the same pipeline covers every matrix cell.
+# Activation: place at <git-root>/azure-pipelines.yml, or point Azure at this file.
+trigger: none
+
+parameters:
+  - name: env
+    type: string
+    default: qa
+    values: [qa, uat, dev]
+  - name: groups
+    type: string
+    default: smoke
+  - name: browser
+    type: string
+    default: chrome
+
+pool:
+  vmImage: ubuntu-latest
+
+defaultWorkingDirectory: HybridAutomationFramework/enterprise-automation
+
+steps:
+  - task: JavaToolInstaller@0
+    inputs:
+      versionSpec: "17"
+      jdkArchitectureOption: x64
+      jdkSourceOption: PreInstalledJDK
+
+  - task: Cache@2
+    inputs:
+      key: 'maven | "$(Agent.OS)" | **/pom.xml'
+      path: $(Pipeline.Workspace)/.m2/repository
+      restoreKeys: |
+        maven | "$(Agent.OS)"
+
+  - script: |
+      ./mvnw -B clean verify -Dmaven.repo.local=$(Pipeline.Workspace)/.m2/repository \
+        -Denv=${{ parameters.env }} -Dgroups=${{ parameters.groups }} \
+        -Dbrowser=${{ parameters.browser }} -Dtarget=local -Dheadless=true
+    displayName: Run tests
+    env:
+      SECRET_API_PASSWORD: $(API_PASSWORD)
+      SECRET_UI_PASSWORD: $(UI_PASSWORD)
+
+  - task: PublishTestResults@2
+    condition: always()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+      failTaskOnFailedTests: false
+
+  - task: PublishPipelineArtifact@1
+    condition: always()
+    inputs:
+      targetPath: HybridAutomationFramework/enterprise-automation/target/allure-results
+      artifact: allure-results

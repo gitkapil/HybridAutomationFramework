@@ -1,0 +1,8 @@
+{
+  "request": {
+    "urlPathPattern": "/booking/[^/]+"
+  },
+  "response": {
+    "transformers": ["booking-store"]
+  }
+}

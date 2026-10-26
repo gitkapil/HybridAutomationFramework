@@ -1,0 +1,25 @@
+[
+  {
+    "firstname": "Ada",
+    "lastname": "Lovelace",
+    "totalprice": 100,
+    "depositpaid": true,
+    "bookingdates": { "checkin": "2030-02-01", "checkout": "2030-02-03" },
+    "additionalneeds": "Breakfast"
+  },
+  {
+    "firstname": "Alan",
+    "lastname": "Turing",
+    "totalprice": 2500,
+    "depositpaid": false,
+    "bookingdates": { "checkin": "2030-03-10", "checkout": "2030-03-20" }
+  },
+  {
+    "firstname": "Grace",
+    "lastname": "Hopper",
+    "totalprice": 1,
+    "depositpaid": true,
+    "bookingdates": { "checkin": "2030-04-01", "checkout": "2030-04-02" },
+    "additionalneeds": "Late check-in"
+  }
+]

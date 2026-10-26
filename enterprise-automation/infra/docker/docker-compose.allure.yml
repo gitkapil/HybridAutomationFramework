@@ -1,0 +1,27 @@
+# Allure report service: serves results uploaded from test runs at http://localhost:5050.
+#   cd infra/docker && docker compose -f docker-compose.allure.yml up -d
+#   Copy results into ./allure-results (mounted into the container), then open http://localhost:5050
+# Image tag is unpinned (latest) because no version tag could be verified; pin it once confirmed.
+services:
+  allure:
+    image: frankescobar/allure-docker-service:latest
+    ports:
+      - "5050:5050"
+    environment:
+      CHECK_RESULTS_EVERY_SECONDS: 3
+      KEEP_HISTORY: "1"
+    volumes:
+      - ../../target/allure-results:/app/allure-results
+      - allure-reports:/app/default-reports
+
+  allure-ui:
+    image: frankescobar/allure-docker-service-ui:latest
+    ports:
+      - "5252:5252"
+    environment:
+      ALLURE_DOCKER_PUBLIC_API_URL: http://localhost:5050
+    depends_on:
+      - allure
+
+volumes:
+  allure-reports:
